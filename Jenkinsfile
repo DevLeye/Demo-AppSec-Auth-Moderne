@@ -182,7 +182,7 @@ pipeline {
                 withSonarQubeEnv('SonarQube') {
                     dir('demo/app-springboot') {
                         sh '''
-                            mvn sonar:sonar \
+                            mvn org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar \
                                 -Dsonar.projectKey=${SONAR_KEY_APP} \
                                 -Dsonar.projectName="POC Keycloak - App" \
                                 -Dsonar.java.source=17 \
@@ -192,7 +192,7 @@ pipeline {
                     }
                     dir('demo/service-springboot-rest') {
                         sh '''
-                            mvn sonar:sonar \
+                            mvn org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar \
                                 -Dsonar.projectKey=${SONAR_KEY_SVC} \
                                 -Dsonar.projectName="POC Keycloak - Service REST" \
                                 -Dsonar.java.source=17 \
