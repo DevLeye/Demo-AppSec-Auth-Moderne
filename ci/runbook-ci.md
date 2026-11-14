@@ -360,6 +360,7 @@ Clique sur le build `#1` → **Console Output** pour suivre en live.
 
 ```
 [✓] Checkout          → clone le repo
+[✓] Resolve Deps      → mvn dependency:go-offline (app puis service, séquentiel)
 [✓] DEV Build         → mvn package (app) + mvn verify (service) en parallèle
 [✓] OWASP             → rapport XML généré dans target/
 [✓] SonarQube         → analyse envoyée à http://sonarqube:9000
@@ -410,6 +411,37 @@ curl http://localhost:8091/actuator/health
 | `docker: permission denied` | Socket Docker non monté | Vérifier le volume `/var/run/docker.sock` dans le docker-compose |
 | `Cannot connect to sonarqube` | URL réseau incorrecte | Utiliser `http://sonarqube:9000` (réseau `ci-net`), pas `localhost` |
 | `Credentials not found` | ID credential incorrect | Vérifier que l'ID correspond exactement à ce qui est dans le Jenkinsfile |
+| `A required class was missing while executing org.apache.maven.plugins:...` | Cache Maven (`/root/.m2`) corrompu | Vider le cache — voir ci-dessous |
+
+### Cache Maven corrompu (`A required class was missing`)
+
+**Symptôme** — un plugin Maven échoue avant même de compiler, par exemple :
+
+```
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.2.5:test ...
+A required class was missing ...: org/apache/maven/surefire/booter/KeyValueSource
+
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-dependency-plugin:3.6.1:go-offline ...
+A required class was missing ...: org/apache/commons/lang3/StringUtils
+```
+
+Ça arrive aussi avec `-DskipTests` : Maven charge le plugin surefire avant de décider de sauter les tests.
+
+**Cause** — des `.jar` ou `.pom` tronqués dans le cache Maven. Les branches `App - Package` et `Service - Verify` tournent en parallèle. Avant l'ajout du stage `Resolve Dependencies`, elles téléchargeaient les mêmes plugins en même temps dans le même `/root/.m2`. Ce dossier est le volume Docker persistant `maven_cache` (voir `docker-compose-ci-tools.yml`), donc les fichiers abîmés restent d'un build à l'autre. Supprimer un seul dossier ne suffit généralement pas.
+
+**Prévention** — le stage `Resolve Dependencies` du Jenkinsfile lance `mvn dependency:go-offline` sur les deux projets, l'un après l'autre, avant le stage parallèle. Ne pas le supprimer.
+
+**Solution** — vider tout le cache, puis relancer le build :
+
+```bash
+docker exec jenkins rm -rf /root/.m2/repository
+```
+
+Le build suivant sera plus long, le temps de tout retélécharger. Si l'erreur revient alors que le cache est vide, vérifier le réseau ou le proxy :
+
+```bash
+docker exec jenkins sh -c "mvn -v; curl -sI https://repo.maven.apache.org/maven2/ | head -1"
+```
 
 ---
 
