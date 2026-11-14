@@ -60,6 +60,22 @@ pipeline {
         }
 
         // =====================================================================
+        // Pré-chargement du cache Maven (séquentiel)
+        // Évite que les builds parallèles téléchargent les mêmes artefacts
+        // en même temps dans ~/.m2 (jars tronqués → "required class missing")
+        // =====================================================================
+        stage('Resolve Dependencies') {
+            steps {
+                dir('demo/app-springboot') {
+                    sh 'mvn dependency:go-offline -B'
+                }
+                dir('demo/service-springboot-rest') {
+                    sh 'mvn dependency:go-offline -B'
+                }
+            }
+        }
+
+        // =====================================================================
         // DEV — Build & Tests unitaires (parallèle)
         // =====================================================================
         stage('DEV - Build & Unit Tests') {
