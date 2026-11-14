@@ -412,6 +412,7 @@ curl http://localhost:8091/actuator/health
 | `Cannot connect to sonarqube` | URL réseau incorrecte | Utiliser `http://sonarqube:9000` (réseau `ci-net`), pas `localhost` |
 | `Credentials not found` | ID credential incorrect | Vérifier que l'ID correspond exactement à ce qui est dans le Jenkinsfile |
 | `A required class was missing while executing org.apache.maven.plugins:...` | Cache Maven (`/root/.m2`) corrompu | Vider le cache — voir ci-dessous |
+| `error reading ...jar; zip file is empty` / `zip END header not found` / `The POM for ... is invalid` | Cache Maven (`/root/.m2`) corrompu (fichiers vides ou remplis de zéros) | Voir ci-dessous |
 
 ### Cache Maven corrompu (`A required class was missing`)
 
@@ -427,15 +428,35 @@ A required class was missing ...: org/apache/commons/lang3/StringUtils
 
 Ça arrive aussi avec `-DskipTests` : Maven charge le plugin surefire avant de décider de sauter les tests.
 
+Autre forme du même problème, au moment de la compilation :
+
+```
+[WARNING] The POM for io.micrometer:micrometer-commons:jar:1.13.0 is invalid, transitive dependencies (if any) will not be available
+[ERROR] error reading /root/.m2/repository/io/micrometer/micrometer-observation/1.13.0/micrometer-observation-1.13.0.jar; zip file is empty
+  ZipException opening "micrometer-observation-1.13.0.jar": zip END header not found
+```
+
+Suivies de dizaines de `cannot find symbol` (`Configuration`, `HttpSecurity`…) : ce sont des conséquences, pas la cause.
+
 **Cause** — des `.jar` ou `.pom` tronqués dans le cache Maven. Les branches `App - Package` et `Service - Verify` tournent en parallèle. Avant l'ajout du stage `Resolve Dependencies`, elles téléchargeaient les mêmes plugins en même temps dans le même `/root/.m2`. Ce dossier est le volume Docker persistant `maven_cache` (voir `docker-compose-ci-tools.yml`), donc les fichiers abîmés restent d'un build à l'autre. Supprimer un seul dossier ne suffit généralement pas.
 
-**Prévention** — le stage `Resolve Dependencies` du Jenkinsfile lance `mvn dependency:go-offline` sur les deux projets, l'un après l'autre, avant le stage parallèle. Ne pas le supprimer.
+Un **arrêt brutal pendant une écriture** (crash de la JVM — fichiers `hs_err_pid*.log` —, redémarrage de Docker Desktop / WSL, mise en veille du PC) produit le même résultat : des fichiers de taille 0, ou dont le contenu est remplacé par des octets nuls (même `_remote.repositories`). Maven voit le fichier présent et ne le re-télécharge jamais.
+
+Pour mesurer les dégâts :
+
+```bash
+docker exec jenkins sh -c 'find /root/.m2/repository -type f -size -1c | wc -l'
+```
+
+**Prévention** — le stage `Resolve Dependencies` commence par supprimer automatiquement les dossiers d'artefacts contenant un fichier vide ou un `.jar` sans en-tête ZIP (`PK`), ce qui force leur re-téléchargement. Il lance ensuite `mvn dependency:go-offline` sur les deux projets, l'un après l'autre, avant le stage parallèle. Ne pas le supprimer.
 
 **Solution** — vider tout le cache, puis relancer le build :
 
 ```bash
 docker exec jenkins rm -rf /root/.m2/repository
 ```
+
+> Sous Windows avec Git Bash, préfixer par `MSYS_NO_PATHCONV=1`, sinon le chemin est réécrit en `C:/Program Files/Git/root/...` et la commande ne fait rien.
 
 Le build suivant sera plus long, le temps de tout retélécharger. Si l'erreur revient alors que le cache est vide, vérifier le réseau ou le proxy :
 

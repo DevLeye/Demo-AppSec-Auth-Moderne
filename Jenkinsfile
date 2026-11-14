@@ -66,6 +66,29 @@ pipeline {
         // =====================================================================
         stage('Resolve Dependencies') {
             steps {
+                // Purge des artefacts corrompus du cache persistant (volume maven_cache).
+                // Un arrêt brutal (crash JVM, redémarrage Docker/WSL) pendant une écriture
+                // laisse des .jar/.pom vides ou remplis de zéros. Maven les considère comme
+                // déjà téléchargés et ne les re-télécharge jamais → "zip file is empty",
+                // "The POM for ... is invalid". On supprime le dossier de version concerné
+                // pour forcer un nouveau téléchargement.
+                sh '''
+                    REPO="$HOME/.m2/repository"
+                    [ -d "$REPO" ] || exit 0
+                    {
+                        find "$REPO" -type f \\( -name '*.jar' -o -name '*.pom' -o -name '*.sha1' \\
+                             -o -name '_remote.repositories' \\) -size -1c -printf '%h\\n'
+                        find "$REPO" -type f -name '*.jar' -size +0c | while read -r f; do
+                            [ "$(head -c2 "$f")" = "PK" ] || dirname "$f"
+                        done
+                    } | sort -u > corrupted-m2-dirs.txt
+                    if [ -s corrupted-m2-dirs.txt ]; then
+                        echo "Cache Maven : $(wc -l < corrupted-m2-dirs.txt) artefact(s) corrompu(s) supprimé(s) :"
+                        cat corrupted-m2-dirs.txt
+                        xargs rm -rf < corrupted-m2-dirs.txt
+                    fi
+                    rm -f corrupted-m2-dirs.txt
+                '''
                 dir('demo/app-springboot') {
                     sh 'mvn dependency:go-offline -B'
                 }
