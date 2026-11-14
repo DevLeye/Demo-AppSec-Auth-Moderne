@@ -18,6 +18,8 @@
 	
 	<properties>
 		<java.version>17</java.version>
+		<!-- CVE-2026-84939 (path traversal via locale) : 2.3.32 fourni par Boot 3.3.0 est vulnérable -->
+		<freemarker.version>2.3.35</freemarker.version>
 		<!-- SonarQube -->
 		<sonar.projectKey>poc-keycloak-app</sonar.projectKey>
 		<sonar.projectName>POC Keycloak - App</sonar.projectName>

@@ -1,5 +1,5 @@
 # -------- Build (optimisation Quarkus) --------
-FROM quay.io/keycloak/keycloak:25.0.0 as builder
+FROM quay.io/keycloak/keycloak:26.8.2 as builder
 ENV KC_HEALTH_ENABLED=true \
     KC_METRICS_ENABLED=true \
     KC_DB=postgres \
@@ -15,7 +15,7 @@ RUN mkdir -p /mnt/rootfs && \
     dnf --installroot /mnt/rootfs clean all
 
 # -------- Runtime --------
-FROM quay.io/keycloak/keycloak:25.0.0
+FROM quay.io/keycloak/keycloak:26.8.2
 
 # récupère l’optimisation Quarkus + outils
 COPY --from=builder /opt/keycloak/lib/quarkus/ /opt/keycloak/lib/quarkus/
