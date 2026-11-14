@@ -17,7 +17,7 @@ import org.springframework.security.oauth2.server.resource.authentication.Delega
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -42,12 +42,14 @@ public class SecurityConfig {
 
 		http.cors(Customizer.withDefaults());
 
+		PathPatternRequestMatcher.Builder path = PathPatternRequestMatcher.withDefaults();
+
 		http.authorizeHttpRequests(
 				authorize -> authorize
-						.requestMatchers(new AntPathRequestMatcher("/public")).permitAll()
-						.requestMatchers(new AntPathRequestMatcher("/swagger-ui/**")).permitAll()
-						.requestMatchers(new AntPathRequestMatcher("/v3/api-docs/**")).permitAll()
-						.requestMatchers(new AntPathRequestMatcher("/planets"))
+						.requestMatchers(path.matcher("/public")).permitAll()
+						.requestMatchers(path.matcher("/swagger-ui/**")).permitAll()
+						.requestMatchers(path.matcher("/v3/api-docs/**")).permitAll()
+						.requestMatchers(path.matcher("/planets"))
 						.hasAuthority(KeycloakJwtRolesConverter.PREFIX_RESOURCE_ROLE + "realm_user")
 						.anyRequest().authenticated());
 
