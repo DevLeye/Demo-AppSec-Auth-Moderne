@@ -1,5 +1,5 @@
 # =============================================================================
-# Plugins Jenkins — compatibles avec Jenkins 2.462.3-lts-jdk17
+# Plugins Jenkins — compatibles avec Jenkins lts-jdk17 (versions les plus récentes)
 # jenkins-plugin-cli résout automatiquement les versions compatibles.
 # =============================================================================
 

@@ -32,7 +32,7 @@ Checkout
 ## PHASE 1 — Démarrer Jenkins + SonarQube
 
 > **Changement important** : Jenkins utilise désormais une image custom avec version fixée
-> (`2.462.3-lts-jdk17`), tous les plugins pré-installés, Trivy et Maven intégrés.
+> (`lts-jdk17`), tous les plugins pré-installés, Trivy et Maven intégrés.
 > Plus besoin d'installer quoi que ce soit manuellement après le démarrage.
 
 ### Étape 1.1 — Prérequis système
@@ -287,7 +287,6 @@ Trivy est intégré dans l'image Jenkins custom. Aucune action manuelle requise.
 
 Vérification :
 ```bash
-docker exec jenkins trivy --version
 # Attendu : trivy version 0.51.1
 ```
 

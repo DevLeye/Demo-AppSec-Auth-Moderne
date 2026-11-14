@@ -18,8 +18,6 @@
 #   SonarQube → http://localhost:9000   admin / admin
 # =============================================================================
 
-version: "3.9"
-
 services:
 
   # ---------------------------------------------------------------------------
@@ -29,7 +27,7 @@ services:
     build:
       context: ./jenkins
       dockerfile: Dockerfile
-    image: xdshoot/poc-keycloak-jenkins:2.504
+    image: xdshoot/poc-keycloak-jenkins:lts
     container_name: jenkins
     user: root
     ports:

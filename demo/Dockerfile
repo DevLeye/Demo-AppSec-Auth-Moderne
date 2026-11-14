@@ -11,7 +11,7 @@ RUN /opt/keycloak/bin/kc.sh build
 FROM registry.access.redhat.com/ubi9 AS ubi-micro-build
 RUN mkdir -p /mnt/rootfs && \
     dnf install --installroot /mnt/rootfs jq curl \
-      --releasever 9 --setopt install_weak_deps=false --nodocs -y && \
+    --releasever 9 --setopt install_weak_deps=false --nodocs -y && \
     dnf --installroot /mnt/rootfs clean all
 
 # -------- Runtime --------
@@ -36,5 +36,5 @@ WORKDIR /opt/keycloak
 
 # Garde ENTRYPOINT "kc.sh" et passe les options en CMD (plus flexible)
 ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
-CMD ["start", "--optimized", "--import-realm", "--proxy-headers", "xforwarded",
-     "--spi-theme-static-max-age=-1", "--spi-theme-cache-themes=false", "--spi-theme-cache-templates=false"]
+CMD ["start", "--optimized", "--import-realm", "--proxy-headers", "xforwarded",\
+    "--spi-theme-static-max-age=-1", "--spi-theme-cache-themes=false", "--spi-theme-cache-templates=false"]
