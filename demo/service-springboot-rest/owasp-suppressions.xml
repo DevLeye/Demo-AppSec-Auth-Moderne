@@ -21,4 +21,13 @@
         <cve>CVE-2022-31691</cve>
     </suppress>
 
+    <!-- Faux positif : CVE-2025-15104 est une SSRF de Nu Html Checker (validator.nu,
+         cpe validator:validator). Dependency-Check rattache à tort la CPE générique
+         "validator:validator" à hibernate-validator. — 14/11/2026 -->
+    <suppress>
+        <notes>CVE-2025-15104 concerne Nu Html Checker (nu.validator), pas Hibernate Validator</notes>
+        <gav regex="true">^org\.hibernate\.validator:hibernate-validator:.*$</gav>
+        <cve>CVE-2025-15104</cve>
+    </suppress>
+
 </suppressions>
