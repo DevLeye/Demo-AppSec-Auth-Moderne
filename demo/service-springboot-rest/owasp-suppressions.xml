@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+    <!-- Faux positifs OWASP Dependency Check — voir aussi app-springboot/owasp-suppressions.xml -->
+
+    <!-- Faux positif : CVE-2025-7962 vise le code SMTP d'Angus Mail (angus-mail / jakarta.mail),
+         pas angus-activation. La CPE "eclipse:angus_mail" est rattachée à tort à ce jar.
+         Aucun envoi de mail dans cette application. — 14/11/2026 -->
+    <suppress>
+        <notes>angus-activation ne contient pas le transport SMTP vulnérable (CVE-2025-7962 concerne angus-mail &lt; 2.0.4)</notes>
+        <gav regex="true">^org\.eclipse\.angus:angus-activation:.*$</gav>
+        <cve>CVE-2025-7962</cve>
+    </suppress>
+
+    <!-- Faux positif : CVE-2022-31691 concerne les extensions IDE Spring Tools 4 / VS Code
+         (Bosh Editor, Concourse CI Pipeline Editor...), pas la bibliothèque spring-boot-devtools.
+         De plus devtools est optionnel et exclu du jar de production. — 14/11/2026 -->
+    <suppress>
+        <notes>CVE-2022-31691 vise les extensions Spring Tools (IDE), pas spring-boot-devtools</notes>
+        <gav regex="true">^org\.springframework\.boot:spring-boot-devtools:.*$</gav>
+        <cve>CVE-2022-31691</cve>
+    </suppress>
+
+</suppressions>

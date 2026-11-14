@@ -14,6 +14,12 @@ logging:
 keycloak:
   audience: ${KEYCLOAK_AUDIENCE:}
 
+# springdoc 3.2.0 cherche swagger-ui 5.34.0 (version codée en dur) ; on force celle du pom,
+# sinon /swagger-ui/index.html ne trouve pas ses fichiers (404 -> 401).
+springdoc:
+  swagger-ui:
+    version: "@swagger-ui.version@"
+
 spring:
   security:
     oauth2:

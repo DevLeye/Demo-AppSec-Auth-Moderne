@@ -127,7 +127,9 @@ pipeline {
         }
 
         // =====================================================================
-        // OWASP Dependency Check — CVE score >= 7 → unstable
+        // OWASP Dependency Check — ≥1 CVE critique → FAILURE, >5 HIGH → UNSTABLE
+        // OSS Index désactivé : Sonatype exige désormais un compte (401 sinon) ;
+        // l'analyse s'appuie sur la base NVD + RetireJS.
         // =====================================================================
         stage('OWASP Dependency Check') {
             steps {
@@ -139,6 +141,8 @@ pipeline {
                                 -DnvdApiKey=${NVD_KEY} \
                                 -DfailBuildOnCVSS=10 \
                                 -DcveValidForHours=12 \
+                                -DossindexAnalyzerEnabled=false \
+                                -DassemblyAnalyzerEnabled=false \
                                 -Dformat=ALL \
                                 -DsuppressionFile=owasp-suppressions.xml \
                                 -B || true
@@ -150,7 +154,10 @@ pipeline {
                                 -DnvdApiKey=${NVD_KEY} \
                                 -DfailBuildOnCVSS=10 \
                                 -DcveValidForHours=12 \
+                                -DossindexAnalyzerEnabled=false \
+                                -DassemblyAnalyzerEnabled=false \
                                 -Dformat=ALL \
+                                -DsuppressionFile=owasp-suppressions.xml \
                                 -B || true
                         '''
                     }
