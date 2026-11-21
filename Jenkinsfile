@@ -172,6 +172,19 @@ pipeline {
                         '''
                     }
                 }
+                // "|| true" ci-dessus masque les plantages de Dependency-Check
+                // (ex : clé NVD invalide → base vide → aucun rapport). Sans rapport,
+                // le publisher ne voit rien et l'étape passait au vert à tort.
+                script {
+                    def missing = sh(returnStatus: true, script: '''
+                        for d in demo/app-springboot demo/service-springboot-rest; do
+                            [ -f "$d/target/dependency-check-report.xml" ] || { echo "Rapport OWASP absent : $d"; exit 1; }
+                        done
+                    ''')
+                    if (missing != 0) {
+                        unstable('OWASP Dependency-Check n\'a produit aucun rapport : vérifier la credential "nvd-api-key" (clé NVD invalide/expirée ?)')
+                    }
+                }
             }
             post {
                 always {
@@ -353,7 +366,10 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
-                        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+                        # Docker Hub refuse les en-têtes contenant \\r, \\n ou espaces parasites
+                        # (copier-coller du token) → "malformed HTTP Authorization header".
+                        printf '%s' "${DOCKER_PASS}" | tr -d ' \\r\\n' \\
+                            | docker login -u "$(printf '%s' "${DOCKER_USER}" | tr -d ' \\r\\n' | tr 'A-Z' 'a-z')" --password-stdin
 
                         docker push ${APP_IMAGE}:${IMAGE_TAG}
                         docker push ${APP_IMAGE}:latest
@@ -404,7 +420,8 @@ pipeline {
                            variable: 'KC_SECRET')
                 ]) {
                     sh '''
-                        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+                        printf '%s' "${DOCKER_PASS}" | tr -d ' \\r\\n' \\
+                            | docker login -u "$(printf '%s' "${DOCKER_USER}" | tr -d ' \\r\\n' | tr 'A-Z' 'a-z')" --password-stdin
                         docker pull ${APP_IMAGE}:${IMAGE_TAG}
 
                         docker stop poc-keycloak-uat  2>/dev/null || true
@@ -465,7 +482,8 @@ pipeline {
                            variable: 'KC_SECRET')
                 ]) {
                     sh '''
-                        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+                        printf '%s' "${DOCKER_PASS}" | tr -d ' \\r\\n' \\
+                            | docker login -u "$(printf '%s' "${DOCKER_USER}" | tr -d ' \\r\\n' | tr 'A-Z' 'a-z')" --password-stdin
                         docker pull ${APP_IMAGE}:${IMAGE_TAG}
 
                         docker stop poc-keycloak-preprod  2>/dev/null || true

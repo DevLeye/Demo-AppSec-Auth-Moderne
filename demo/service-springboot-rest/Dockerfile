@@ -14,7 +14,9 @@ FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
-RUN addgroup -S spring && adduser -S spring -G spring
+# Correctifs de sécurité Alpine (ex : CVE libfontenc remontée par Trivy)
+RUN apk upgrade --no-cache \
+    && addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
 COPY --from=builder /build/target/*.jar app.jar
