@@ -30,11 +30,21 @@ pipeline {
         IMAGE_TAG         = "v${BUILD_NUMBER}"
         SONAR_KEY_APP     = 'poc-keycloak-app'
         SONAR_KEY_SVC     = 'poc-keycloak-service'
+
+        // OWASP Dependency-Check : la 10.0.3 plante sur l'API NVD actuelle
+        // (NullPointerException dans NvdCveClient → base vide "No documents exist").
+        DC_VERSION        = '12.2.2'
+
+        // Trivy : timeout par défaut (5 min) trop court pour télécharger la base
+        // depuis mirror.gcr.io ; on ajoute ghcr.io en source prioritaire.
+        TRIVY_TIMEOUT            = '20m'
+        TRIVY_DB_REPOSITORY      = 'ghcr.io/aquasecurity/trivy-db:2,mirror.gcr.io/aquasec/trivy-db:2'
+        TRIVY_JAVA_DB_REPOSITORY = 'ghcr.io/aquasecurity/trivy-java-db:1,mirror.gcr.io/aquasec/trivy-java-db:1'
     }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 120, unit: 'MINUTES')  // 1er run DC 12.x : re-téléchargement complet de la base NVD
         disableConcurrentBuilds()
         timestamps()
     }
@@ -137,7 +147,7 @@ pipeline {
                                         variable: 'NVD_KEY')]) {
                     dir('demo/app-springboot') {
                         sh '''
-                            mvn org.owasp:dependency-check-maven:10.0.3:check \
+                            mvn org.owasp:dependency-check-maven:${DC_VERSION}:check \
                                 -DnvdApiKey=${NVD_KEY} \
                                 -DfailBuildOnCVSS=10 \
                                 -DcveValidForHours=12 \
@@ -150,7 +160,7 @@ pipeline {
                     }
                     dir('demo/service-springboot-rest') {
                         sh '''
-                            mvn org.owasp:dependency-check-maven:10.0.3:check \
+                            mvn org.owasp:dependency-check-maven:${DC_VERSION}:check \
                                 -DnvdApiKey=${NVD_KEY} \
                                 -DfailBuildOnCVSS=10 \
                                 -DcveValidForHours=12 \
@@ -217,9 +227,24 @@ pipeline {
         // =====================================================================
         stage('Trivy Filesystem Scan') {
             steps {
+                // Mise à jour unique des bases Trivy. Si le téléchargement échoue
+                // (réseau lent / registre indisponible) mais qu'une base est déjà
+                // en cache, on continue avec celle-ci plutôt que de casser le build.
+                sh '''
+                    CACHE="${TRIVY_CACHE_DIR:-$HOME/.cache/trivy}"
+                    trivy image --download-db-only || {
+                        [ -f "$CACHE/db/trivy.db" ] || { echo "Base Trivy indisponible"; exit 1; }
+                        echo "WARN : mise à jour de la base Trivy impossible, utilisation du cache"
+                    }
+                    trivy image --download-java-db-only || {
+                        [ -f "$CACHE/java-db/trivy-java.db" ] || { echo "Java DB Trivy indisponible"; exit 1; }
+                        echo "WARN : mise à jour de la Java DB Trivy impossible, utilisation du cache"
+                    }
+                '''
                 sh '''
                     trivy fs \
                         --exit-code 0 \
+                        --skip-db-update --skip-java-db-update \
                         --severity HIGH,CRITICAL \
                         --format table \
                         --output trivy-fs-app.txt \
@@ -227,6 +252,7 @@ pipeline {
 
                     trivy fs \
                         --exit-code 0 \
+                        --skip-db-update --skip-java-db-update \
                         --severity HIGH,CRITICAL \
                         --format table \
                         --output trivy-fs-service.txt \
@@ -281,44 +307,37 @@ pipeline {
 
         // =====================================================================
         // Trivy — Image Scan (avant push)
+        // Séquentiel : deux "trivy image" en parallèle se disputent le verrou du
+        // cache ("cache may be in use by another process: timeout").
         // =====================================================================
         stage('Trivy Image Scan') {
-            parallel {
-                stage('Scan App Image') {
-                    steps {
-                        sh '''
-                            trivy image \
-                                --exit-code 0 \
-                                --severity HIGH,CRITICAL \
-                                --format table \
-                                --output trivy-image-app.txt \
-                                ${APP_IMAGE}:${IMAGE_TAG}
-                            cat trivy-image-app.txt
-                        '''
-                    }
-                    post {
-                        always {
-                            archiveArtifacts artifacts: 'trivy-image-app.txt', allowEmptyArchive: true
-                        }
-                    }
-                }
-                stage('Scan Service Image') {
-                    steps {
-                        sh '''
-                            trivy image \
-                                --exit-code 0 \
-                                --severity HIGH,CRITICAL \
-                                --format table \
-                                --output trivy-image-service.txt \
-                                ${SVC_IMAGE}:${IMAGE_TAG}
-                            cat trivy-image-service.txt
-                        '''
-                    }
-                    post {
-                        always {
-                            archiveArtifacts artifacts: 'trivy-image-service.txt', allowEmptyArchive: true
-                        }
-                    }
+            steps {
+                sh '''
+                    trivy image \
+                        --exit-code 0 \
+                        --skip-db-update --skip-java-db-update \
+                        --severity HIGH,CRITICAL \
+                        --format table \
+                        --output trivy-image-app.txt \
+                        ${APP_IMAGE}:${IMAGE_TAG}
+
+                    trivy image \
+                        --exit-code 0 \
+                        --skip-db-update --skip-java-db-update \
+                        --severity HIGH,CRITICAL \
+                        --format table \
+                        --output trivy-image-service.txt \
+                        ${SVC_IMAGE}:${IMAGE_TAG}
+
+                    echo "====== APP IMAGE SCAN ======"
+                    cat trivy-image-app.txt
+                    echo "====== SERVICE IMAGE SCAN ======"
+                    cat trivy-image-service.txt
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-image-*.txt', allowEmptyArchive: true
                 }
             }
         }
